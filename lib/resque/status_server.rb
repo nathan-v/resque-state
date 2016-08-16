@@ -2,13 +2,12 @@ require 'resque/server'
 require 'resque-status'
 
 module Resque
+  ## Resque Server plugin for Resque Status
   module StatusServer
-
     VIEW_PATH = File.join(File.dirname(__FILE__), 'server', 'views')
     PER_PAGE = 50
 
     def self.registered(app)
-
       app.get '/statuses' do
         @start = params[:start].to_i
         @end = @start + (params[:per_page] || per_page) - 1
@@ -48,15 +47,15 @@ module Resque
         redirect u(:statuses)
       end
 
-      app.get "/statuses.poll" do
-        content_type "text/plain"
+      app.get '/statuses.poll' do
+        content_type 'text/plain'
         @polling = true
 
         @start = params[:start].to_i
         @end = @start + (params[:per_page] || per_page) - 1
         @statuses = Resque::Plugins::Status::Hash.statuses(@start, @end)
         @size = Resque::Plugins::Status::Hash.count
-        status_view(:statuses, {:layout => false})
+        status_view(:statuses, layout: false)
       end
 
       app.helpers do
@@ -70,7 +69,7 @@ module Resque
 
         def status_poll(start)
           if @polling
-            text = "Last Updated: #{Time.now.strftime("%H:%M:%S")}"
+            text = "Last Updated: #{Time.now.strftime('%H:%M:%S')}"
           else
             text = "<a href='#{u(request.path_info)}.poll?start=#{start}' rel='poll'>Live Poll</a>"
           end
@@ -78,10 +77,8 @@ module Resque
         end
       end
 
-      app.tabs << "Statuses"
-
+      app.tabs << 'Statuses'
     end
-
   end
 end
 
