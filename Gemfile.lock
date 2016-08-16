@@ -4,6 +4,8 @@ GEM
     addressable (2.3.5)
     builder (3.2.2)
     docile (1.1.5)
+    fakeredis (0.5.0)
+      redis (~> 3.0)
     faraday (0.7.6)
       addressable (~> 2.2)
       multipart-post (~> 1.1)
@@ -25,7 +27,8 @@ GEM
       nokogiri (>= 1.5.10)
       rake
       rdoc
-    json (1.8.1)
+    json (1.8.2)
+    json (1.8.2-java)
     metaclass (0.0.2)
     mini_portile (0.5.2)
     minitest (5.5.1)
@@ -35,13 +38,15 @@ GEM
     multipart-post (1.2.0)
     nokogiri (1.6.1)
       mini_portile (~> 0.5.0)
+    nokogiri (1.6.1-java)
+      mini_portile (~> 0.5.0)
     oauth2 (0.5.2)
       faraday (~> 0.7)
       multi_json (~> 1.0)
     rack (1.4.1)
     rack-protection (1.2.0)
       rack
-    rake (10.1.1)
+    rake (10.4.2)
     rdoc (4.1.1)
       json (~> 1.4)
     redis (3.0.2)
@@ -66,9 +71,11 @@ GEM
       rack (>= 1.0.0)
 
 PLATFORMS
+  java
   ruby
 
 DEPENDENCIES
+  fakeredis (~> 0.5.0)
   jeweler
   minitest (~> 5.5)
   mocha (~> 0.9)

@@ -1,6 +1,10 @@
 require 'test_helper'
 
 class TestResquePluginsStatus < Minitest::Test
+  def self.test_order
+    :sorted
+  end
+
   describe 'Resque::Plugins::Status' do
     before do
       Resque.redis.flushall
@@ -249,9 +253,10 @@ class TestResquePluginsStatus < Minitest::Test
     describe 'invoking killall jobs to kill a range' do
       before do
         @uuid1    = KillableJob.create(num: 100)
+        sleep 1 # Prevent inconsistent test results due to timing issues
         @uuid2    = KillableJob.create(num: 100)
 
-        Resque::Plugins::Status::Hash.killall(0, 0) # only @uuid2 it be killed
+        Resque::Plugins::Status::Hash.killall(0 , 0) # only @uuid2 it be killed
 
         refute_includes Resque::Plugins::Status::Hash.kill_ids, @uuid1
         assert_includes Resque::Plugins::Status::Hash.kill_ids, @uuid2

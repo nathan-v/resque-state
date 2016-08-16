@@ -18,6 +18,7 @@ coverage
 rdoc
 pkg
 .rvmrc
+.idea
 
 ## PROJECT::SPECIFIC
 doc
