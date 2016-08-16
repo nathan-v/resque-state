@@ -2,13 +2,11 @@ require 'securerandom'
 
 module Resque
   module Plugins
-    module Status
-
-      # Resque::Plugins::Status::Hash is a Hash object that has helper methods for dealing with
+    module State
+      # Resque::Plugins::State::Hash is a Hash object that has helper methods for dealing with
       # the common status attributes. It also has a number of class methods for
       # creating/updating/retrieving status objects from Redis
       class Hash < ::Hash
-
         # Create a status, generating a new UUID, passing the message to the status
         # Returns the UUID of the new status.
         def self.create(uuid, *messages)
@@ -18,31 +16,29 @@ module Resque
           uuid
         end
 
-        # Get a status by UUID. Returns a Resque::Plugins::Status::Hash
+        # Get a status by UUID. Returns a Resque::Plugins::State::Hash
         def self.get(uuid)
           val = redis.get(status_key(uuid))
-          val ? Resque::Plugins::Status::Hash.new(uuid, decode(val)) : nil
+          val ? Resque::Plugins::State::Hash.new(uuid, decode(val)) : nil
         end
 
-        # Get multiple statuses by UUID. Returns array of Resque::Plugins::Status::Hash
+        # Get multiple statuses by UUID. Returns array of Resque::Plugins::State::Hash
         def self.mget(uuids)
           return [] if uuids.empty?
-          status_keys = uuids.map{|u| status_key(u)}
+          status_keys = uuids.map { |u| status_key(u) }
           vals = redis.mget(*status_keys)
 
           uuids.zip(vals).map do |uuid, val|
-            val ? Resque::Plugins::Status::Hash.new(uuid, decode(val)) : nil
+            val ? Resque::Plugins::State::Hash.new(uuid, decode(val)) : nil
           end
         end
 
         # set a status by UUID. <tt>messages</tt> can be any number of strings or hashes
         # that are merged in order to create a single status.
         def self.set(uuid, *messages)
-          val = Resque::Plugins::Status::Hash.new(uuid, *messages)
+          val = Resque::Plugins::State::Hash.new(uuid, *messages)
           redis.set(status_key(uuid), encode(val))
-          if expire_in
-            redis.expire(status_key(uuid), expire_in)
-          end
+          redis.expire(status_key(uuid), expire_in) if expire_in
           val
         end
 
@@ -81,16 +77,12 @@ module Resque
           redis.zrem(set_key, uuid)
         end
 
-        def self.count
-          redis.zcard(set_key)
-        end
-
-        # Return <tt>num</tt> Resque::Plugins::Status::Hash objects in reverse chronological order.
+        # Return <tt>num</tt> Resque::Plugins::State::Hash objects in reverse chronological order.
         # By default returns the entire set.
         # @param [Numeric] range_start The optional starting range
         # @param [Numeric] range_end The optional ending range
         # @example retuning the last 20 statuses
-        #   Resque::Plugins::Status::Hash.statuses(0, 20)
+        #   Resque::Plugins::State::Hash.statuses(0, 20)
         def self.statuses(range_start = nil, range_end = nil)
           ids = status_ids(range_start, range_end)
           mget(ids).compact || []
@@ -102,7 +94,7 @@ module Resque
             # Because we want a reverse chronological order, we need to get a range starting
             # by the higest negative number. The ordering is transparent from the API user's
             # perspective so we need to convert the passed params
-            (redis.zrevrange(set_key, (range_start.abs), ((range_end || 1).abs)) || [])
+            (redis.zrevrange(set_key, range_start.abs, (range_end || 1).abs) || [])
           else
             # Because we want a reverse chronological order, we need to get a range starting
             # by the higest negative number.
@@ -113,7 +105,7 @@ module Resque
         # Kill the job at UUID on its next iteration this works by adding the UUID to a
         # kill list (a.k.a. a list of jobs to be killed. Each iteration the job checks
         # if it _should_ be killed by calling <tt>tick</tt> or <tt>at</tt>. If so, it raises
-        # a <tt>Resque::Plugins::Status::Killed</tt> error and sets the status to 'killed'.
+        # a <tt>Resque::Plugins::State::Killed</tt> error and sets the status to 'killed'.
         def self.kill(uuid)
           redis.sadd(kill_key, uuid)
         end
@@ -135,7 +127,7 @@ module Resque
         # @param [Numeric] range_start The optional starting range
         # @param [Numeric] range_end The optional ending range
         # @example killing the last 20 submitted jobs
-        #   Resque::Plugins::Status::Hash.killall(0, 20)
+        #   Resque::Plugins::State::Hash.killall(0, 20)
         def self.killall(range_start = nil, range_end = nil)
           status_ids(range_start, range_end).collect do |id|
             kill(id)
@@ -147,10 +139,47 @@ module Resque
           redis.sismember(kill_key, uuid)
         end
 
+        # pause the job at UUID on its next iteration this works by adding the UUID to a
+        # pause list (a.k.a. a list of jobs to be pauseed. Each iteration the job checks
+        # if it _should_ be pauseed by calling <tt>tick</tt> or <tt>at</tt>. If so, it sleeps
+        # for 10 seconds before checking again if it should continue sleeping
+        def self.pause(uuid)
+          redis.sadd(pause_key, uuid)
+        end
+
+        # Remove the job at UUID from the pause list
+        def self.unpause(uuid)
+          redis.srem(pause_key, uuid)
+        end
+
+        # Return the UUIDs of the jobs on the pause list
+        def self.pause_ids
+          redis.smembers(pause_key)
+        end
+
+        # pauses <tt>num</tt> jobs within range starting with the most recent first.
+        # By default pauses all jobs.
+        # Note that the same conditions apply as <tt>pause</tt>, i.e. only jobs that check
+        # on each iteration by calling <tt>tick</tt> or <tt>at</tt> are eligible to pauseed.
+        # @param [Numeric] range_start The optional starting range
+        # @param [Numeric] range_end The optional ending range
+        # @example pauseing the last 20 submitted jobs
+        #   Resque::Plugins::State::Hash.pauseall(0, 20)
+        def self.pauseall(range_start = nil, range_end = nil)
+          status_ids(range_start, range_end).collect do |id|
+            pause(id)
+          end
+        end
+
+        # Check whether a job with UUID is on the pause list
+        def self.should_pause?(uuid)
+          redis.sismember(pause_key, uuid)
+        end
+
         # The time in seconds that jobs and statuses should expire from Redis (after
         # the last time they are touched/updated)
-        def self.expire_in
-          @expire_in
+        class << self
+          attr_reader :expire_in
         end
 
         # Set the <tt>expire_in</tt> time in seconds
@@ -163,11 +192,15 @@ module Resque
         end
 
         def self.set_key
-          "_statuses"
+          '_statuses'
         end
 
         def self.kill_key
-          "_kill"
+          '_kill'
+        end
+
+        def self.pause_key
+          '_pause'
         end
 
         def self.generate_uuid
@@ -176,7 +209,7 @@ module Resque
 
         def self.hash_accessor(name, options = {})
           options[:default] ||= nil
-          coerce = options[:coerce] ? ".#{options[:coerce]}" : ""
+          coerce = options[:coerce] ? ".#{options[:coerce]}" : ''
           module_eval <<-EOT
           def #{name}
             value = (self['#{name}'] ? self['#{name}']#{coerce} : #{options[:default].inspect})
@@ -211,7 +244,7 @@ module Resque
         hash_accessor :num
         hash_accessor :total
 
-        # Create a new Resque::Plugins::Status::Hash object. If multiple arguments are passed
+        # Create a new Resque::Plugins::State::Hash object. If multiple arguments are passed
         # it is assumed the first argument is the UUID and the rest are status objects.
         # All arguments are subsequentily merged in order. Strings are assumed to
         # be messages.
@@ -219,14 +252,14 @@ module Resque
           super nil
           base_status = {
             'time' => Time.now.to_i,
-            'status' => Resque::Plugins::Status::STATUS_QUEUED
+            'status' => Resque::Plugins::State::STATUS_QUEUED
           }
           base_status['uuid'] = args.shift if args.length > 1
           status_hash = args.inject(base_status) do |final, m|
-            m = {'message' => m} if m.is_a?(String)
+            m = { 'message' => m } if m.is_a?(String)
             final.merge(m || {})
           end
-          self.replace(status_hash)
+          replace(status_hash)
         end
 
         # calculate the % completion of the job based on <tt>status</tt>, <tt>num</tt>
@@ -236,8 +269,13 @@ module Resque
             100
           elsif queued?
             0
+          elsif failed?
+            0
           else
-            t = (total == 0 || total.nil?) ? 1 : total
+            if total.nil?
+              t = 1
+            else t = total
+            end
             (((num || 0).to_f / t.to_f) * 100).to_i
           end
         end
@@ -248,7 +286,7 @@ module Resque
           time? ? Time.at(self['time']) : nil
         end
 
-        Resque::Plugins::Status::STATUSES.each do |status|
+        Resque::Plugins::State::STATUSES.each do |status|
           define_method("#{status}?") do
             self['status'] === status
           end
@@ -260,23 +298,28 @@ module Resque
           !failed? && !completed? && !killed?
         end
 
+        # Can the job be paused? failed, completed, paused, and killed jobs can't be
+        # paused, for obvious reasons
+        def pausable?
+          !failed? && !completed? && !killed? && !paused?
+        end
+
         unless method_defined?(:to_json)
-          def to_json(*args)
+          def to_json(*_args)
             json
           end
         end
 
         # Return a JSON representation of the current object.
         def json
-          h = self.dup
+          h = dup
           h['pct_complete'] = pct_complete
           self.class.encode(h)
         end
 
         def inspect
-          "#<Resque::Plugins::Status::Hash #{super}>"
+          "#<Resque::Plugins::State::Hash #{super}>"
         end
-
       end
     end
   end

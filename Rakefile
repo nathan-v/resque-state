@@ -1,32 +1,33 @@
 $LOAD_PATH.unshift './lib'
 
 require 'rake'
-require 'resque-status'
+require 'resque-state'
 require 'resque/tasks'
 
 begin
   require 'jeweler'
   Jeweler::Tasks.new do |gem|
-    gem.name = 'resque-status'
-    gem.version = Resque::Plugins::Status::VERSION
-    gem.summary = %(resque-status is an extension to the resque queue system
-      that provides simple trackable jobs.)
-    gem.description = %(resque-status is an extension to the resque queue
+    gem.name = 'resque-state'
+    gem.version = Resque::Plugins::State::VERSION.dup
+    gem.summary = %(resque-state is an extension to the resque queue system
+      that provides simple trackable jobs.).gsub("\n", ' ').squeeze(' ')
+    gem.description = %(resque-state is an extension to the resque queue
       system that provides simple trackable jobs. It provides a
-      Resque::Plugins::Status::Hash class which can set/get the statuses of jobs
-      and a Resque::Plugins::Status class that when included provides easily
-      trackable/killable jobs.)
-    gem.email = 'aaron@quirkey.com'
-    gem.homepage = 'http://github.com/quirkey/resque-status'
-    gem.rubyforge_project = 'quirkey'
-    gem.authors = ['Aaron Quint']
+      Resque::Plugins::State::Hash class which can set/get the statuses of jobs
+      and a Resque::Plugins::State class that, when included, provides easily
+      trackable/killable/pausable jobs.).gsub("\n", ' ').squeeze(' ')
+    gem.email = 'nathan.v@gmail.com'
+    gem.homepage = 'http://github.com/nathan-v/resque-state'
+    gem.rubyforge_project = 'nathan-v'
+    gem.authors = ['Aaron Quint', 'Nathan V']
+    gem.licenses = 'MIT'
     # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20
     #  for additional settings
   end
   Jeweler::RubygemsDotOrgTasks.new
 rescue LoadError
   puts 'Jeweler (or a dependency) not available. Install it with: gem install'\
-  ' jeweler'
+  ' jeweler'.gsub("\n", ' ').squeeze(' ')
 end
 
 require 'rake/testtask'
@@ -44,4 +45,4 @@ end
 
 task :test
 
-task default: :test
+task default: :coverage

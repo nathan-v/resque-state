@@ -7,8 +7,9 @@ group :test do
   gem 'minitest', '~> 5.5'
   gem 'simplecov'
   gem 'fakeredis', '~> 0.5.0'
+  gem "codeclimate-test-reporter", require: nil
 end
 
 group :development do
-  gem 'jeweler'
+  gem 'jeweler', '~> 2.1'
 end

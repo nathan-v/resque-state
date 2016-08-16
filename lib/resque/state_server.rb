@@ -1,60 +1,60 @@
 require 'resque/server'
-require 'resque-status'
+require 'resque-state'
 
 module Resque
   ## Resque Server plugin for Resque Status
-  module StatusServer
+  module StateServer
     VIEW_PATH = File.join(File.dirname(__FILE__), 'server', 'views')
     PER_PAGE = 50
 
     def self.registered(app)
-      app.get '/statuses' do
+      app.get '/state' do
         @start = params[:start].to_i
         @end = @start + (params[:per_page] || per_page) - 1
-        @statuses = Resque::Plugins::Status::Hash.statuses(@start, @end)
-        @size = Resque::Plugins::Status::Hash.count
+        @statuses = Resque::Plugins::State::Hash.statuses(@start, @end)
+        @size = Resque::Plugins::State::Hash.count
         status_view(:statuses)
       end
 
-      app.get '/statuses/:id.js' do
-        @status = Resque::Plugins::Status::Hash.get(params[:id])
+      app.get '/state/:id.js' do
+        @status = Resque::Plugins::State::Hash.get(params[:id])
         content_type :js
         @status.json
       end
 
-      app.get '/statuses/:id' do
-        @status = Resque::Plugins::Status::Hash.get(params[:id])
+      app.get '/state/:id' do
+        @status = Resque::Plugins::State::Hash.get(params[:id])
         status_view(:status)
       end
 
-      app.post '/statuses/:id/kill' do
-        Resque::Plugins::Status::Hash.kill(params[:id])
+      app.post '/state/:id/kill' do
+        Resque::Plugins::State::Hash.kill(params[:id])
         redirect u(:statuses)
       end
 
-      app.post '/statuses/clear' do
-        Resque::Plugins::Status::Hash.clear
+      app.post '/state/clear' do
+        Resque::Plugins::State::Hash.clear
         redirect u(:statuses)
       end
 
-      app.post '/statuses/clear/completed' do
-        Resque::Plugins::Status::Hash.clear_completed
+      app.post '/state/clear/completed' do
+        Resque::Plugins::State::Hash.clear_completed
         redirect u(:statuses)
       end
 
-      app.post '/statuses/clear/failed' do
-        Resque::Plugins::Status::Hash.clear_failed
+      app.post '/state/clear/failed' do
+        Resque::Plugins::State::Hash.clear_failed
         redirect u(:statuses)
       end
 
-      app.get '/statuses.poll' do
+      app.get '/state.poll' do
         content_type 'text/plain'
         @polling = true
 
         @start = params[:start].to_i
         @end = @start + (params[:per_page] || per_page) - 1
-        @statuses = Resque::Plugins::Status::Hash.statuses(@start, @end)
-        @size = Resque::Plugins::Status::Hash.count
+        @statuses = Resque::Plugins::State::Hash.statuses(@start, @end)
+        @size = Resque::Plugins::State::Hash.count
         status_view(:statuses, layout: false)
       end
 
@@ -64,7 +64,7 @@ module Resque
         end
 
         def status_view(filename, options = {}, locals = {})
-          erb(File.read(File.join(::Resque::StatusServer::VIEW_PATH, "#{filename}.erb")), options, locals)
+          erb(File.read(File.join(::Resque::StateServer::VIEW_PATH, "#{filename}.erb")), options, locals)
         end
 
         def status_poll(start)
@@ -77,9 +77,9 @@ module Resque
         end
       end
 
-      app.tabs << 'Statuses'
+      app.tabs << 'State'
     end
   end
 end
 
-Resque::Server.register Resque::StatusServer
+Resque::Server.register Resque::StateServer

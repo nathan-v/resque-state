@@ -23,7 +23,6 @@ pkg
 ## PROJECT::SPECIFIC
 doc
 .yardoc
-
-test/dump.rdb
+*.gem
 bin/
 .bundle

@@ -1,7 +1,7 @@
-<%= status_view :status_styles, :layout => false %>
+<%= status_view :state_styles, :layout => false %>
 
-<h1 class='wi'>Status <%= @status.uuid %></h1>
-<p class='intro'>Viewing a specific job created with Resque::Plugins::Status. <a href="<%= u(:statuses) %>">Return to the list of statuses</a></p>
+<h1 class='wi'>State <%= @status.uuid %></h1>
+<p class='intro'>Viewing a specific job created with Resque::Plugins::State. <a href="<%= u(:statuses) %>">Return to the list of statuses</a></p>
 
 <div class="status-holder" rel="<%= @status.status %>" id="status_<%= @status.uuid %>">
   <h2>Overview</h2>
@@ -69,7 +69,7 @@
           }
         };
         var status = $status.attr('rel');
-        if (status == '<%= Resque::Plugins::Status::STATUS_WORKING %>' || status == '<%= Resque::Plugins::Status::STATUS_QUEUED %>' || status == "") {
+        if (status == '<%= Resque::Plugins::State::STATUS_WORKING %>' || status == '<%= Resque::Plugins::State::STATUS_QUEUED %>' || status == "") {
           setTimeout(function() {
             checkStatus($status)
           }, 1500);

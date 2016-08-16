@@ -7,19 +7,20 @@ if ENV['COVERAGE']
 end
 
 require 'bundler/setup'
-require 'resque-status'
+require 'resque-state'
 require 'minitest/autorun'
 require 'mocha/setup'
-require "fakeredis"
+require 'fakeredis'
+require 'codeclimate-test-reporter'
 
-
+CodeClimate::TestReporter.start
 
 Resque.redis = Redis.new
 
 #### Fixtures
 
 class WorkingJob
-  include Resque::Plugins::Status
+  include Resque::Plugins::State
 
   def perform
     total = options['num']
@@ -30,15 +31,27 @@ class WorkingJob
 end
 
 class ErrorJob
-  include Resque::Plugins::Status
+  include Resque::Plugins::State
 
   def perform
     raise "I'm a bad little job"
   end
 end
 
+class ErrorJobOnFailure
+  include Resque::Plugins::State
+
+  def perform
+    raise "I'm a bad little job"
+  end
+
+  def on_failure(_e, *_args)
+    failed("I'm such a terrible failure")
+  end
+end
+
 class KillableJob
-  include Resque::Plugins::Status
+  include Resque::Plugins::State
 
   def perform
     Resque.redis.set("#{uuid}:iterations", 0)
@@ -49,12 +62,25 @@ class KillableJob
   end
 end
 
+class SleeperJob
+  include Resque::Plugins::State
+
+  def perform
+    @testing = true
+    Resque.redis.set("#{uuid}:iterations", 0)
+    100.times do |num|
+      Resque.redis.incr("#{uuid}:iterations")
+      at(num, 100, "At #{num} of 100")
+    end
+  end
+end
+
 class BasicJob
-  include Resque::Plugins::Status
+  include Resque::Plugins::State
 end
 
 class FailureJob
-  include Resque::Plugins::Status
+  include Resque::Plugins::State
 
   def perform
     failed("I'm such a failure")
@@ -62,7 +88,7 @@ class FailureJob
 end
 
 class NeverQueuedJob
-  include Resque::Plugins::Status
+  include Resque::Plugins::State
 
   def self.before_enqueue(*_args)
     false
