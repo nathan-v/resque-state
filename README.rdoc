@@ -1,6 +1,7 @@
 = resque-state
 
 {<img src="https://img.shields.io/badge/license-MIT-blue.svg" />}[https://github.com/nathan-v/resque-state/blob/master/LICENSE]
+{<img src="https://img.shields.io/gem/v/resque-state.svg" /}[https://rubygems.org/gems/resque-state]
 
 {<img src="https://codeclimate.com/github/nathan-v/resque-state/badges/gpa.svg" />}[https://codeclimate.com/github/nathan-v/resque-state]
 {<img src="https://codeclimate.com/github/nathan-v/resque-state/badges/issue_count.svg" />}[https://codeclimate.com/github/nathan-v/resque-state]
