@@ -72,6 +72,10 @@ module Resque
           end
         end
 
+        def self.count
+          redis.zcard(set_key)
+        end
+
         def self.remove(uuid)
           redis.del(status_key(uuid))
           redis.zrem(set_key, uuid)

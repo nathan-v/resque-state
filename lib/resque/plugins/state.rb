@@ -28,7 +28,7 @@ module Resque
     # end we update the status telling anyone listening to this job that its
     # complete.
     module State
-      VERSION = '1.0.0'.freeze
+      VERSION = '1.0.1'.freeze
 
       STATUS_QUEUED = 'queued'.freeze
       STATUS_WORKING = 'working'.freeze
@@ -235,14 +235,14 @@ module Resque
           pause!
         else
           job_status({ 'status' => STATUS_WORKING }, *messages)
-          @logger.info("#{@uuid}: #{messages.join(' ')}")
+          @logger.info("Job #{@uuid}: #{messages.join(' ')}")
         end
       end
 
       # set the status to 'failed' passing along any additional messages
       def failed(*messages)
         job_status({ 'status' => STATUS_FAILED }, *messages)
-        @logger.error("#{@uuid}: #{messages.join(' ')}")
+        @logger.error("Job #{@uuid}: #{messages.join(' ')}")
       end
 
       # set the status to 'completed' passing along any addional messages
@@ -251,7 +251,7 @@ module Resque
                      'status' => STATUS_COMPLETED,
                      'message' => "Completed at #{Time.now}"
                    }, *messages)
-        @logger.info("#{@uuid}: #{messages.join(' ')}")
+        @logger.info("Job #{@uuid}: #{messages.join(' ')}")
       end
 
       # kill the current job, setting the status to 'killed' and raising
@@ -260,7 +260,7 @@ module Resque
         messages = ["Killed at #{Time.now}"]
         job_status('status' => STATUS_KILLED,
                    'message' => messages[0])
-        @logger.error("#{@uuid}: #{messages.join(' ')}")
+        @logger.error("Job #{@uuid}: #{messages.join(' ')}")
         raise Killed
       end
 
@@ -272,7 +272,7 @@ module Resque
         job_status('status' => STATUS_PAUSED,
                    'message' => messages[0])
         raise Killed if @testing # Don't loop or complete during testing
-        @logger.info("#{@uuid}: #{messages.join(' ')}")
+        @logger.info("Job #{@uuid}: #{messages.join(' ')}")
         while should_pause?
           kill! if should_kill?
           sleep 10
