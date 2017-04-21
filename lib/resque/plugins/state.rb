@@ -1,4 +1,6 @@
+# Resque root module
 module Resque
+  # Resque::Plugins root module
   module Plugins
     # Resque::Plugins::State is a module your jobs will include.
     # It provides helper methods for updating the status/etc from within an
@@ -28,7 +30,7 @@ module Resque
     # end we update the status telling anyone listening to this job that its
     # complete.
     module State
-      VERSION = '1.0.1'.freeze
+      VERSION = '1.0.2'.freeze
 
       STATUS_QUEUED = 'queued'.freeze
       STATUS_WORKING = 'working'.freeze
@@ -36,13 +38,15 @@ module Resque
       STATUS_FAILED = 'failed'.freeze
       STATUS_KILLED = 'killed'.freeze
       STATUS_PAUSED = 'paused'.freeze
+      STATUS_WAITING = 'waiting'.freeze
       STATUSES = [
         STATUS_QUEUED,
         STATUS_WORKING,
         STATUS_COMPLETED,
         STATUS_FAILED,
         STATUS_KILLED,
-        STATUS_PAUSED
+        STATUS_PAUSED,
+        STATUS_WAITING
       ].freeze
 
       autoload :Hash, 'resque/plugins/state/hash'
@@ -57,6 +61,7 @@ module Resque
         base.extend(ClassMethods)
       end
 
+      # Methods required for launching a state-ready job
       module ClassMethods
         # The default queue is :statused, this can be ovveridden in the specific
         # job class to put the jobs on a specific worker queue
@@ -209,6 +214,12 @@ module Resque
         Resque::Plugins::State::Hash.should_pause?(uuid)
       end
 
+      # Checks against the lock list if this specific job instance should wait
+      # before starting
+      def locked?(key)
+        Resque::Plugins::State::Hash.locked?(key)
+      end
+
       # set the status of the job for the current itteration. <tt>num</tt> and
       # <tt>total</tt> are passed to the status as well as any messages.
       # This will kill the job if it has been added to the kill list with
@@ -277,6 +288,31 @@ module Resque
           kill! if should_kill?
           sleep 10
         end
+      end
+
+      # lock against a provided or automatic key to prevent duplicate jobs
+      def lock!(key = nil)
+        lock = Digest::SHA1.hexdigest @options.to_json
+        lock = key if key
+        if locked?(lock)
+          messages = ["Waiting at #{Time.now} due to existing job"]
+          job_status('status' => STATUS_WAITING,
+                     'message' => messages[0])
+          while locked?(lock)
+            kill! if should_kill?
+            pause! if should_pause?
+            sleep 10
+          end
+        else
+          Resque::Plugins::State::Hash.lock(lock)
+        end
+      end
+
+      # unlock the provided or automatic key at the end of a job
+      def unlock!(key = nil)
+        lock = Digest::SHA1.hexdigest @options.to_json
+        lock = key if key
+        Resque::Plugins::State::Hash.unlock(lock)
       end
 
       private

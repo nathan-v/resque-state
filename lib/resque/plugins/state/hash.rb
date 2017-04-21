@@ -3,16 +3,20 @@ require 'securerandom'
 module Resque
   module Plugins
     module State
-      # Resque::Plugins::State::Hash is a Hash object that has helper methods for dealing with
-      # the common status attributes. It also has a number of class methods for
-      # creating/updating/retrieving status objects from Redis
+      # Resque::Plugins::State::Hash is a Hash object that has helper methods
+      # for dealing with the common status attributes. It also has a number of
+      # class methods for creating/updating/retrieving status objects from Redis
       class Hash < ::Hash
-        # Create a status, generating a new UUID, passing the message to the status
+        # Create a status, a new UUID, passing the message to the status
         # Returns the UUID of the new status.
         def self.create(uuid, *messages)
           set(uuid, *messages)
           redis.zadd(set_key, Time.now.to_i, uuid)
-          redis.zremrangebyscore(set_key, 0, Time.now.to_i - @expire_in) if @expire_in
+          if @expire_in
+            redis.zremrangebyscore(
+              set_key, 0, Time.now.to_i - @expire_in
+            )
+          end
           uuid
         end
 
@@ -22,7 +26,7 @@ module Resque
           val ? Resque::Plugins::State::Hash.new(uuid, decode(val)) : nil
         end
 
-        # Get multiple statuses by UUID. Returns array of Resque::Plugins::State::Hash
+        # Get statuses by UUID. Returns array of Resque::Plugins::State::Hash
         def self.mget(uuids)
           return [] if uuids.empty?
           status_keys = uuids.map { |u| status_key(u) }
@@ -33,8 +37,8 @@ module Resque
           end
         end
 
-        # set a status by UUID. <tt>messages</tt> can be any number of strings or hashes
-        # that are merged in order to create a single status.
+        # set a status by UUID. <tt>messages</tt> can be any number of strings
+        # or hashes that are merged in order to create a single status.
         def self.set(uuid, *messages)
           val = Resque::Plugins::State::Hash.new(uuid, *messages)
           redis.set(status_key(uuid), encode(val))
@@ -42,8 +46,8 @@ module Resque
           val
         end
 
-        # clear statuses from redis passing an optional range. See `statuses` for info
-        # about ranges
+        # clear statuses from redis passing an optional range. See `statuses`
+        # for info about ranges
         def self.clear(range_start = nil, range_end = nil)
           status_ids(range_start, range_end).each do |id|
             remove(id)
@@ -81,7 +85,8 @@ module Resque
           redis.zrem(set_key, uuid)
         end
 
-        # Return <tt>num</tt> Resque::Plugins::State::Hash objects in reverse chronological order.
+        # Return <tt>num</tt> Resque::Plugins::State::Hash objects in reverse
+        # chronological order.
         # By default returns the entire set.
         # @param [Numeric] range_start The optional starting range
         # @param [Numeric] range_end The optional ending range
@@ -92,16 +97,18 @@ module Resque
           mget(ids).compact || []
         end
 
-        # Return the <tt>num</tt> most recent status/job UUIDs in reverse chronological order.
+        # Return the <tt>num</tt> most recent status/job UUIDs in reverse
+        # chronological order.
         def self.status_ids(range_start = nil, range_end = nil)
           if range_end && range_start
-            # Because we want a reverse chronological order, we need to get a range starting
-            # by the higest negative number. The ordering is transparent from the API user's
-            # perspective so we need to convert the passed params
+            # Because we want a reverse chronological order, we need to get a
+            # range starting by the higest negative number. The ordering is
+            # transparent from the API user's perspective so we need to convert
+            # the passed params
             (redis.zrevrange(set_key, range_start.abs, (range_end || 1).abs) || [])
           else
-            # Because we want a reverse chronological order, we need to get a range starting
-            # by the higest negative number.
+            # Because we want a reverse chronological order, we need to get a
+            # range starting by the higest negative number.
             redis.zrevrange(set_key, 0, -1) || []
           end
         end
@@ -180,8 +187,25 @@ module Resque
           redis.sismember(pause_key, uuid)
         end
 
-        # The time in seconds that jobs and statuses should expire from Redis (after
-        # the last time they are touched/updated)
+        # Set a lock key to allow jobs to run as singletons. Optional timeout in
+        # seconds
+        def self.lock(key, timeout = 3600)
+          redis.setnx("_lock-#{key}", key)
+          redis.expire("_lock-#{key}", timeout)
+        end
+
+        # Remove a key from the lock list
+        def self.unlock(key)
+          redis.srem("_lock-#{key}", key)
+        end
+
+        # Check whether a key on the wait list
+        def self.locked?(key)
+          redis.sismember("_lock-#{key}", key)
+        end
+
+        # The time in seconds that jobs and statuses should expire from Redis
+        # (after the last time they are touched/updated)
         class << self
           attr_reader :expire_in
         end
@@ -248,10 +272,10 @@ module Resque
         hash_accessor :num
         hash_accessor :total
 
-        # Create a new Resque::Plugins::State::Hash object. If multiple arguments are passed
-        # it is assumed the first argument is the UUID and the rest are status objects.
-        # All arguments are subsequentily merged in order. Strings are assumed to
-        # be messages.
+        # Create a new Resque::Plugins::State::Hash object. If multiple
+        # arguments are passed it is assumed the first argument is the UUID and
+        # the rest are status objects. All arguments are subsequentily merged in
+        # order. Strings are assumed to be messages.
         def initialize(*args)
           super nil
           base_status = {
@@ -266,8 +290,8 @@ module Resque
           replace(status_hash)
         end
 
-        # calculate the % completion of the job based on <tt>status</tt>, <tt>num</tt>
-        # and <tt>total</tt>
+        # calculate the % completion of the job based on <tt>status</tt>,
+        # <tt>num</tt> and <tt>total</tt>
         def pct_complete
           if completed?
             100
@@ -276,16 +300,16 @@ module Resque
           elsif failed?
             0
           else
-            if total.nil?
-              t = 1
-            else t = total
-            end
+            t = if total.nil?
+                  1
+                else total
+                end
             (((num || 0).to_f / t.to_f) * 100).to_i
           end
         end
 
-        # Return the time of the status initialization. If set returns a <tt>Time</tt>
-        # object, otherwise returns nil
+        # Return the time of the status initialization. If set returns a
+        # <tt>Time</tt> object, otherwise returns nil
         def time
           time? ? Time.at(self['time']) : nil
         end
@@ -302,8 +326,8 @@ module Resque
           !failed? && !completed? && !killed?
         end
 
-        # Can the job be paused? failed, completed, paused, and killed jobs can't be
-        # paused, for obvious reasons
+        # Can the job be paused? failed, completed, paused, and killed jobs
+        # can't be paused, for obvious reasons
         def pausable?
           !failed? && !completed? && !killed? && !paused?
         end
