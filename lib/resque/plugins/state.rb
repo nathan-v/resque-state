@@ -30,7 +30,7 @@ module Resque
     # end we update the status telling anyone listening to this job that its
     # complete.
     module State
-      VERSION = '1.0.2'.freeze
+      VERSION = '1.0.3'.freeze
 
       STATUS_QUEUED = 'queued'.freeze
       STATUS_WORKING = 'working'.freeze
