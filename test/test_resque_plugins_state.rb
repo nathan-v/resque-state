@@ -8,7 +8,7 @@ class TestResquePluginsStatus < Minitest::Test
 
   describe 'Resque::Plugins::State' do
     before do
-      Resque.redis.flushall
+      Redis.current.flushdb
     end
 
     describe '.create' do

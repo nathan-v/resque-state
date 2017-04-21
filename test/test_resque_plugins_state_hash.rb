@@ -4,7 +4,7 @@ require 'test_helper'
 class TestResquePluginsStatusHash < Minitest::Test
   describe 'Resque::Plugins::State::Hash' do
     before do
-      Resque.redis.flushall
+      Redis.current.flushdb
       Resque::Plugins::State::Hash.expire_in = nil
       @uuid = Resque::Plugins::State::Hash.create(
         Resque::Plugins::State::Hash.generate_uuid
@@ -223,7 +223,7 @@ class TestResquePluginsStatusHash < Minitest::Test
       end
 
       it 'return an empty array when no statuses are available' do
-        Resque.redis.flushall
+        Redis.current.flushdb
         statuses = Resque::Plugins::State::Hash.statuses
         assert_equal [], statuses
       end

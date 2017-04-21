@@ -11,9 +11,6 @@ require 'resque-state'
 require 'minitest/autorun'
 require 'mocha/setup'
 require 'fakeredis'
-require 'codeclimate-test-reporter'
-
-CodeClimate::TestReporter.start
 
 Resque.redis = Redis.new
 
