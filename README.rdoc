@@ -22,7 +22,7 @@ and allowing the job instances to report their state from within their iteration
 
 == Installation
 
-Ruby 1.9.3 and up are supported.
+Ruby 2.0+ and JRuby 9.0+ are supported.
 
 resque-state <b>requires Redis >= 1.1</b> (though I recommend getting the latest stable version).
 You can download Redis here: http://redis.io/ or install it
