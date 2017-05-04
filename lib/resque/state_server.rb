@@ -24,27 +24,27 @@ module Resque
 
       app.get '/state/:id' do
         @status = Resque::Plugins::State::Hash.get(params[:id])
-        status_view(:status)
+        status_view(:state)
       end
 
       app.post '/state/:id/kill' do
         Resque::Plugins::State::Hash.kill(params[:id])
-        redirect u(:statuses)
+        redirect u(:state)
       end
 
       app.post '/state/clear' do
         Resque::Plugins::State::Hash.clear
-        redirect u(:statuses)
+        redirect u(:state)
       end
 
       app.post '/state/clear/completed' do
         Resque::Plugins::State::Hash.clear_completed
-        redirect u(:statuses)
+        redirect u(:state)
       end
 
       app.post '/state/clear/failed' do
         Resque::Plugins::State::Hash.clear_failed
-        redirect u(:statuses)
+        redirect u(:state)
       end
 
       app.get '/state.poll' do

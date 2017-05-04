@@ -3,13 +3,13 @@
 <h1 class='wi'>Statuses</h1>
 
 <%unless @statuses.empty?%>
-  <form method="POST" action="<%= u(:statuses) %>/clear" class='clear-failed'>
+  <form method="POST" action="<%= u(:state) %>/clear" class='clear-failed'>
     <input type='submit' name='' value='Clear Statuses' onclick='return confirm("Are you absolutely sure? This cannot be undone.");' />
   </form>
-  <form method="POST" action="<%= u(:statuses) %>/clear/completed" class='clear-failed'>
+  <form method="POST" action="<%= u(:state) %>/clear/completed" class='clear-failed'>
     <input type='submit' name='' value='Clear Completed Statuses' onclick='return confirm("Are you absolutely sure? This cannot be undone.");' />
   </form>
-  <form method="POST" action="<%= u(:statuses) %>/clear/failed" class='clear-failed'>
+  <form method="POST" action="<%= u(:state) %>/clear/failed" class='clear-failed'>
     <input type='submit' name='' value='Clear Failed Statuses' onclick='return confirm("Are you absolutely sure? This cannot be undone.");' />
   </form>
 <%end%>
@@ -28,7 +28,7 @@
   <% unless @statuses.empty? %>
     <% @statuses.each do |status| %>
     <tr>
-      <td><a href="<%= u(:statuses) %>/<%= status.uuid %>"><%= status.uuid %></a></td>
+      <td><a href="<%= u(:state) %>/<%= status.uuid %>"><%= status.uuid %></a></td>
       <td><%= status.name %></td>
       <td class="status status-<%= status.status %>"><%= status.status %></td>
       <td class="time"><%= status.time.strftime("%Y/%m/%d %H:%M:%S %z") %></td>
@@ -37,7 +37,7 @@
         <div class="progress-pct"><%= status.pct_complete ? "#{status.pct_complete}%" : '' %></div>
       </td>
       <td><%= status.message %></td>
-      <td><% if status.killable? %><a href="<%= u(:statuses) %>/<%= status.uuid %>/kill" class="kill">Kill</a><% end %></td>
+      <td><% if status.killable? %><a href="<%= u(:state) %>/<%= status.uuid %>/kill" class="kill">Kill</a><% end %></td>
     </tr>
     <% end %>
   <% else %>
