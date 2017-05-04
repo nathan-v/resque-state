@@ -22,7 +22,7 @@ and allowing the job instances to report their state from within their iteration
 
 == Installation
 
-Ruby 2.0+ and JRuby 9.0+ are supported.
+Ruby 2.2+ and JRuby 9.0+ are supported.
 
 resque-state <b>requires Redis >= 1.1</b> (though I recommend getting the latest stable version).
 You can download Redis here: http://redis.io/ or install it
@@ -138,6 +138,25 @@ again.
 
 The next time the job at job_id calls <tt>at</tt> or <tt>tick</tt>, it will start a while
 loop with a 10 second sleep until Resque::Plugins::State::Hash.unpause is called.
+
+As of 1.1 pause! can be called from the job itself with an optional string argument
+that allows you to set a specific status along with the paused state if you'd like.
+
+=== Back it up
+
+Perhaps you want a job to be able to undo what it did. Well; that's what revert is 
+all about. Jobs that support on_revert can be told to revert and will run insructions
+in that method to undo whatever they might need to. While you could do similar things
+with on_failure on_revert was added to provide a separate status for reverting and
+reverted cases so you can see later which jobs failed (probably due to an error) or
+which ones might have been intentionally reverted by a user or automation.
+
+  Resque::Plugins::State::Hash.revert(job_id)
+
+This is all you need to tell that job to go back and undo it's work. For jobs that
+do not support on_revert those jobs will pause themeslves and leave a note to the user
+that the job doesn't allow that functionality. This lets the user decide if the job
+should be killed or let continue.
 
 === Percent Complete and setting the message
 

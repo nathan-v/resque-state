@@ -30,7 +30,7 @@ module Resque
     # end we update the status telling anyone listening to this job that its
     # complete.
     module State
-      VERSION = '1.0.4'.freeze
+      VERSION = '1.1.0'.freeze
 
       STATUS_QUEUED = 'queued'.freeze
       STATUS_WORKING = 'working'.freeze
@@ -39,6 +39,8 @@ module Resque
       STATUS_KILLED = 'killed'.freeze
       STATUS_PAUSED = 'paused'.freeze
       STATUS_WAITING = 'waiting'.freeze
+      STATUS_REVERTING = 'reverting'.freeze
+      STATUS_REVERTED = 'reverted'.freeze
       STATUSES = [
         STATUS_QUEUED,
         STATUS_WORKING,
@@ -46,13 +48,16 @@ module Resque
         STATUS_FAILED,
         STATUS_KILLED,
         STATUS_PAUSED,
-        STATUS_WAITING
+        STATUS_WAITING,
+        STATUS_REVERTING,
+        STATUS_REVERTED
       ].freeze
 
       autoload :Hash, 'resque/plugins/state/hash'
 
       # The error class raised when a job is killed
       class Killed < RuntimeError; end
+      class Revert < RuntimeError; end
       class NotANumber < RuntimeError; end
 
       attr_reader :uuid, :options
@@ -157,9 +162,10 @@ module Resque
 
       # Create a new instance with <tt>uuid</tt> and <tt>options</tt>
       def initialize(uuid, options = {})
-        @uuid    = uuid
-        @options = options
-        @logger = Resque.logger
+        @reverting = false
+        @uuid      = uuid
+        @options   = options
+        @logger    = Resque.logger
       end
 
       # Run by the Resque::Worker when processing this job. It wraps the
@@ -181,7 +187,21 @@ module Resque
       rescue Killed
         Resque::Plugins::State::Hash.killed(uuid)
         on_killed if respond_to?(:on_killed)
+      rescue Revert
+        Resque::Plugins::State::Hash.revert(uuid)
+        if respond_to?(:on_revert)
+          on_revert
+          messages = ["Reverted at #{Time.now}"]
+          job_status('status' => STATUS_REVERTED,
+                     'message' => messages[0])
+        else
+          @logger.error("Job #{@uuid}: Attempted revert on job with no revert"\
+                        " support")
+          pause!('This job does not support revert functionality')
+        end
       rescue => e
+        messages = ["Failed at #{Time.now}: #{e.message}"]
+        @logger.error("Job #{@uuid}: #{messages.join(' ')}")
         failed("The task failed because of an error: #{e}")
         raise e unless respond_to?(:on_failure)
         on_failure(e)
@@ -214,6 +234,12 @@ module Resque
         Resque::Plugins::State::Hash.should_pause?(uuid)
       end
 
+      # Checks against the revert list if this specific job instance should be
+      # paused on the next iteration
+      def should_revert?
+        Resque::Plugins::State::Hash.should_revert?(uuid)
+      end
+
       # Checks against the lock list if this specific job instance should wait
       # before starting
       def locked?(key)
@@ -244,6 +270,10 @@ module Resque
         kill! if should_kill?
         if should_pause?
           pause!
+        elsif should_revert?
+          return revert! unless @reverting
+          job_status({ 'status' => STATUS_REVERTING }, *messages)
+          @logger.info("Job #{@uuid}: #{messages.join(' ')}")
         else
           job_status({ 'status' => STATUS_WORKING }, *messages)
           @logger.info("Job #{@uuid}: #{messages.join(' ')}")
@@ -253,6 +283,12 @@ module Resque
       # set the status to 'failed' passing along any additional messages
       def failed(*messages)
         job_status({ 'status' => STATUS_FAILED }, *messages)
+        @logger.error("Job #{@uuid}: #{messages.join(' ')}")
+      end
+
+      # set the status to 'reverted' passing along any additional messages
+      def reverted(*messages)
+        job_status({ 'status' => STATUS_REVERTED }, *messages)
         @logger.error("Job #{@uuid}: #{messages.join(' ')}")
       end
 
@@ -275,17 +311,30 @@ module Resque
         raise Killed
       end
 
+      # revert the current job, setting the status to 'reverting' and raising
+      # <tt>Revert</tt>
+      def revert!
+        messages = ["Reverting at #{Time.now}"]
+        Resque::Plugins::State::Hash.unpause(uuid) if should_pause?
+        @reverting = true
+        job_status('status' => STATUS_REVERTING,
+                   'message' => messages[0])
+        @logger.info("Job #{@uuid}: #{messages.join(' ')}")
+        raise Revert
+      end
+
       # pause the current job, setting the status to 'paused' and sleeping 10
       # seconds
-      def pause!
+      def pause!(pause_text = nil)
         Resque::Plugins::State::Hash.pause(uuid)
-        messages = ["Paused at #{Time.now}"]
+        messages = ["Paused at #{Time.now} #{pause_text}"]
         job_status('status' => STATUS_PAUSED,
                    'message' => messages[0])
         raise Killed if @testing # Don't loop or complete during testing
         @logger.info("Job #{@uuid}: #{messages.join(' ')}")
         while should_pause?
           kill! if should_kill?
+          revert! if should_revert?
           sleep 10
         end
       end

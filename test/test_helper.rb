@@ -72,6 +72,20 @@ class SleeperJob
   end
 end
 
+class RevertJob
+  include Resque::Plugins::State
+
+  def perform
+    Resque.redis.set("#{uuid}:iterations", 0)
+    100.times do |num|
+      Resque.redis.incr("#{uuid}:iterations")
+      at(num, 100, "At #{num} of 100")
+    end
+  end
+
+  def on_revert; end
+end
+
 class BasicJob
   include Resque::Plugins::State
 end

@@ -187,6 +187,24 @@ module Resque
           redis.sismember(pause_key, uuid)
         end
 
+        # revert the job at UUID on its next iteration this works by adding the UUID to a
+        # revert list (a.k.a. a list of jobs to be reverted. Each iteration the job checks
+        # if it _should_ be reverted by calling <tt>tick</tt> or <tt>at</tt>. If so, it sleeps
+        # for 10 seconds before checking again if it should continue sleeping
+        def self.revert(uuid)
+          redis.sadd(revert_key, uuid)
+        end
+
+        # Return the UUIDs of the jobs on the revert list
+        def self.revert_ids
+          redis.smembers(revert_key)
+        end
+
+        # Check whether a job with UUID is on the revert list
+        def self.should_revert?(uuid)
+          redis.sismember(revert_key, uuid)
+        end
+
         # Set a lock key to allow jobs to run as singletons. Optional timeout in
         # seconds
         def self.lock(key, timeout = 3600)
@@ -229,6 +247,10 @@ module Resque
 
         def self.pause_key
           '_pause'
+        end
+
+        def self.revert_key
+          '_revert'
         end
 
         def self.generate_uuid
@@ -320,16 +342,22 @@ module Resque
           end
         end
 
-        # Can the job be killed? failed, completed, and killed jobs can't be
-        # killed, for obvious reasons
+        # Can the job be killed? failed, completed, reverted, and killed jobs
+        # can't be killed, for obvious reasons
         def killable?
-          !failed? && !completed? && !killed?
+          !failed? && !completed? && !killed? && !reverted?
         end
 
-        # Can the job be paused? failed, completed, paused, and killed jobs
+        # Can the job be paused? failed, completed, paused, reverted, and killed
+        # jobs can't be paused, for obvious reasons
+        def pausable?
+          !failed? && !completed? && !killed? && !paused? && !reverted?
+        end
+
+        # Can the job be reverted? failed, completed, reverted, and killed jobs
         # can't be paused, for obvious reasons
         def pausable?
-          !failed? && !completed? && !killed? && !paused?
+          !failed? && !completed? && !killed? && !reverted?
         end
 
         unless method_defined?(:to_json)

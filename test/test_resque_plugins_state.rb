@@ -290,6 +290,29 @@ class TestResquePluginsStatus < Minitest::Test
       end
     end
 
+    describe 'reverting a job' do
+      before do
+        @uuid      = RevertJob.create(num: 100)
+        @payload   = Resque.pop(:statused)
+        Resque::Plugins::State::Hash.revert(@uuid)
+        @performed = RevertJob.perform(*@payload['args'])
+        @status = Resque::Plugins::State::Hash.get(@uuid)
+      end
+
+      after do
+        Resque::Plugins::State::Hash.kill(@uuid)
+      end
+
+      it 'set the status to reverted' do
+        assert @status.reverted?
+        assert !@status.completed?
+      end
+
+      it 'persist the revert key' do
+        assert_includes Resque::Plugins::State::Hash.revert_ids, @uuid
+      end
+    end
+
     describe 'pausing a job' do
       before do
         @uuid      = SleeperJob.create(num: 100)
