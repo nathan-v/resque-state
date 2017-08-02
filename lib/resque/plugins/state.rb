@@ -30,7 +30,7 @@ module Resque
     # end we update the status telling anyone listening to this job that its
     # complete.
     module State
-      VERSION = '1.1.0'.freeze
+      VERSION = '1.1.1'.freeze
 
       STATUS_QUEUED = 'queued'.freeze
       STATUS_WORKING = 'working'.freeze
@@ -189,16 +189,10 @@ module Resque
         on_killed if respond_to?(:on_killed)
       rescue Revert
         Resque::Plugins::State::Hash.revert(uuid)
-        if respond_to?(:on_revert)
-          on_revert
-          messages = ["Reverted at #{Time.now}"]
-          job_status('status' => STATUS_REVERTED,
-                     'message' => messages[0])
-        else
-          @logger.error("Job #{@uuid}: Attempted revert on job with no revert"\
-                        " support")
-          pause!('This job does not support revert functionality')
-        end
+        on_revert
+        messages = ["Reverted at #{Time.now}"]
+        job_status('status' => STATUS_REVERTED,
+                   'message' => messages[0])
       rescue => e
         messages = ["Failed at #{Time.now}: #{e.message}"]
         @logger.error("Job #{@uuid}: #{messages.join(' ')}")
@@ -314,13 +308,20 @@ module Resque
       # revert the current job, setting the status to 'reverting' and raising
       # <tt>Revert</tt>
       def revert!
-        messages = ["Reverting at #{Time.now}"]
-        Resque::Plugins::State::Hash.unpause(uuid) if should_pause?
-        @reverting = true
-        job_status('status' => STATUS_REVERTING,
-                   'message' => messages[0])
-        @logger.info("Job #{@uuid}: #{messages.join(' ')}")
-        raise Revert
+        if respond_to?(:on_revert)
+          messages = ["Reverting at #{Time.now}"]
+          Resque::Plugins::State::Hash.unpause(uuid) if should_pause?
+          @reverting = true
+          job_status('status' => STATUS_REVERTING,
+                     'message' => messages[0])
+          @logger.info("Job #{@uuid}: #{messages.join(' ')}")
+          raise Revert
+        else
+          @logger.error("Job #{@uuid}: Attempted revert on job with no revert"\
+                        " support")
+          Resque::Plugins::State::Hash.no_revert(@uuid)
+          pause!('This job does not support revert functionality')
+        end
       end
 
       # pause the current job, setting the status to 'paused' and sleeping 10
