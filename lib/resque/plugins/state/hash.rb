@@ -195,6 +195,12 @@ module Resque
           redis.sadd(revert_key, uuid)
         end
 
+        # Remove the job at UUID from the revert list; needed to handle jobs
+        # that don't support revert
+        def self.no_revert(uuid)
+          redis.srem(revert_key, uuid)
+        end
+
         # Return the UUIDs of the jobs on the revert list
         def self.revert_ids
           redis.smembers(revert_key)
