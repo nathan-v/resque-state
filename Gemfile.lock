@@ -60,7 +60,7 @@ GEM
     psych (2.2.4)
     psych (2.2.4-java)
       jar-dependencies (>= 0.1.7)
-    rack (2.0.3)
+    rack (2.2.3)
     rack-protection (2.0.0)
       rack
     rake (12.0.0)
